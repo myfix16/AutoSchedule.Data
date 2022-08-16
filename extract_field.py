@@ -7,6 +7,8 @@ import csv
 
 
 class FieldExtractor():
+    """Extract and write each class's info into csv.
+    """
     def __init__(self, class_name: str, source: Optional[str] = None) -> None:
         self.class_name = class_name
         if source is None:
@@ -22,7 +24,7 @@ class FieldExtractor():
 
     @property
     def names(self) -> List[str]:
-        """Get the name of every sessions.
+        """Get the name of every session.
         """
         if len(self._names) == 0:
             names_span: ResultSet = self.subject_table.find_all(
@@ -33,7 +35,7 @@ class FieldExtractor():
 
     @property
     def codes(self) -> List[List[str]]:
-        """Get the code of every sessions.
+        """Get the code of every session.
         """
         if len(self._codes) == 0:
             self._read_details()
@@ -41,25 +43,31 @@ class FieldExtractor():
 
     @property
     def instructors(self) -> List[List[str]]:
+        """Get the instructor of every session.
+        """
         if len(self._instructors) == 0:
             self._read_details()
         return self._instructors
 
     @property
     def times(self) -> List[List[str]]:
+        """Get the time of every session.
+        """
         if len(self._times) == 0:
             self._read_details()
         return self._times
 
     @property
     def locations(self) -> List[List[str]]:
+        """Get the location of every session.
+        """
         if len(self._locations) == 0:
             self._read_details()
         return self._locations
 
     @property
     def contents(self) -> list:
-        """Get the content of every session, return all div's.
+        """Get the content of every session, return all html tags: div.
         """
         if len(self._contents) == 0:
             self._contents: ResultSet = self.subject_table.select(
@@ -67,13 +75,13 @@ class FieldExtractor():
         return self._contents
 
     def _read_details(self) -> None:
-        """Loop through all sessions for one class and gather session information
+        """Extract detailed course info for courses in one specific field.
         """
         self._instructors = []
         self._times = []
         self._locations = []
         self._codes = []
-        # Loop through all sessions for one class and gather session information.
+        # Loop through all sessions for one specific class and gather session information.
         for div in self.contents:
             instructors = []
             times = []
@@ -92,13 +100,14 @@ class FieldExtractor():
                         row.find('span', id=re.compile('MTG_DAYTIME\$\d+')).string)
                     locations.append(
                         row.find('span', id=re.compile('MTG_ROOM\$\d+')).string)
+                    # Deal with sessions that have multiple instructors.
                     instructors.append(
                         ' '.join([item.strip().replace('"', '') for item in row.find('span', id=re.compile('MTG_INSTR\$\d+')).contents if isinstance(item, str)]))
                 elif len(rows) > 1:
                     locations.append(
                         rows[0].find('span', id=re.compile('MTG_ROOM\$\d+')).string)
                     instructors.append(
-                        rows[0].find('span', id=re.compile('MTG_INSTR\$\d+')).string)
+                        ' '.join([item.strip().replace('"', '') for item in rows[0].find('span', id=re.compile('MTG_INSTR\$\d+')).contents if isinstance(item, str)]))
                     time: List[str] = [
                         row.find('span', id=re.compile('MTG_DAYTIME\$\d+')).string for row in rows]
                     times.append(";".join(time))
@@ -111,6 +120,8 @@ class FieldExtractor():
             self._codes.append(codes)
 
     def write_to_csv(self, path: str) -> None:
+        """Write extracted course info into csv.
+        """
         headers: List[str] = ["Name", "Code", "Time", "Instructor", "Location"]
         contents: List[List[str]] = []
         for i in range(len(self.names)):
