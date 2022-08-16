@@ -42,3 +42,6 @@ class TokenManager():
             raise ValueError("No key loaded.")
         f = Fernet(self.key)
         return f.decrypt(encrypted_message)
+
+manager = TokenManager()
+manager.load_key("secret.key")

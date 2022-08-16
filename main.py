@@ -1,6 +1,6 @@
 from typing import List
 
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException, NoSuchElementException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -9,15 +9,15 @@ from token_manager import TokenManager
 from selenium import webdriver
 from selenium.webdriver.support.select import Select
 import time
-import selenium
 import re
+import os
 
 
 tm = TokenManager()
 tm.load_key("./secret.key")
 
 id = b'gAAAAABf-VFK9Ae3x75XwAgT1Cshv1ntOV-vuiK2vS_gGRdrkfa3TOGVkv2hclh-1Vvo5y21VPw_JWMvjTfzBwlwtOmJD4Jwig=='
-pswd = b'gAAAAABf-6E-FoxuxarhYPvpidqrnuL_GTY2zKvJ5TJd2GyztGhf8FJknd64zMRka9APY0v7p6YCVVL1dgu7t1fHHOXQYGiTBA=='
+pswd = b'gAAAAABi22s6CpwU-HKwBpdMT03GyBuYcTPrIoepnNq3OtbEoBvH-6IlZeu52kOi0JM5sMEh6ha6_zOyRwayMdR7dd7P9RFV2Q=='
 
 # The path to a browser
 # driver = webdriver.Chrome(r'/Applications/chromedriver')
@@ -27,7 +27,8 @@ driver.implicitly_wait(2)
 wait = WebDriverWait(driver, 10, 0.5)
 
 # To the shopping cart
-driver.get('http://sis.cuhk.edu.cn:81/psp/csprd/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES_2.SSR_SSENRL_CART.GBL?PORTALPARAM_PTCNAV=HC_SSR_SSENRL_CART_GBL2&EOPP.SCNode=HRMS&EOPP.SCPortal=EMPLOYEE&EOPP.SCName=PT_PTPP_PORTAL_ROOT&EOPP.SCLabel=&FolderPath=PORTAL_ROOT_OBJECT.PORTAL_BASE_DATA.CO_NAVIGATION_COLLECTIONS.PT_PTPP_PORTAL_ROOT.ADMN_F201512291342098588791689.ADMN_F201601191916357876084613.ADMN_S201601191922427744232182&IsFolder=false')
+# driver.get('http://sis.cuhk.edu.cn:81/psp/csprd/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES_2.SSR_SSENRL_CART.GBL?PORTALPARAM_PTCNAV=HC_SSR_SSENRL_CART_GBL2&EOPP.SCNode=HRMS&EOPP.SCPortal=EMPLOYEE&EOPP.SCName=PT_PTPP_PORTAL_ROOT&EOPP.SCLabel=&FolderPath=PORTAL_ROOT_OBJECT.PORTAL_BASE_DATA.CO_NAVIGATION_COLLECTIONS.PT_PTPP_PORTAL_ROOT.ADMN_F201512291342098588791689.ADMN_F201601191916357876084613.ADMN_S201601191922427744232182&IsFolder=false')
+driver.get('https://sis.cuhk.edu.cn/psp/csprd/EMPLOYEE/HRMS/c/SA_LEARNER_SERVICES_2.SSR_SSENRL_CART.GBL?PORTALPARAM_PTCNAV=HC_SSR_SSENRL_CART_GBL2&EOPP.SCNode=HRMS&EOPP.SCPortal=EMPLOYEE&EOPP.SCName=PT_PTPP_PORTAL_ROOT&EOPP.SCLabel=&FolderPath=PORTAL_ROOT_OBJECT.PORTAL_BASE_DATA.CO_NAVIGATION_COLLECTIONS.PT_PTPP_PORTAL_ROOT.ADMN_F201512291342098588791689.ADMN_F201601191916357876084613.ADMN_S201601191922427744232182&IsFolder=false')
 language_select = Select(driver.find_element_by_xpath('//*[@id="ptlangsel"]'))
 language_select.select_by_value('ENG')
 
@@ -44,7 +45,7 @@ driver.switch_to_frame(
     driver.find_element_by_xpath('//*[@id="ptifrmtgtframe"]'))
 
 # select the radio button representing the term and click the continue button
-driver.find_element_by_xpath('//*[@id="SSR_DUMMY_RECV1$sels$4$$0"]').click()
+driver.find_element_by_xpath('//*[@id="SSR_DUMMY_RECV1$sels$7$$0"]').click()
 driver.find_element_by_xpath('//*[@id="DERIVED_SSS_SCT_SSR_PB_GO"]').click()
 
 # Go to the search page and get classes html
@@ -65,10 +66,11 @@ class_search = Select(driver.find_element_by_xpath(
 
 courses: List[str] = [select.text for select in class_search.options]
 
-biology_clicked: bool = False
+view_all_clicked: bool = False
 
-selected_courses = courses[52:]
-selected_courses.insert(0, "Biology")
+selected_courses = courses[:]
+# the bug of biology makes expanding items easier
+# selected_courses.insert(0, "Accounting")
 for course in selected_courses:
     class_search.select_by_visible_text(course)
     wait.until(EC.presence_of_element_located(
@@ -88,18 +90,23 @@ for course in selected_courses:
         wait.until(EC.presence_of_element_located(
             (By.XPATH, '//*[@id="DERIVED_CLSRCH_DESCR200$0"]')))
 
+        # click "view all" to show all available sessions
         # ! A bug of sis that after clicking 'viewall' in biology page, view all is enabled in every page.
         # ! Therefore, necessary adjustments are made here.
-        if not biology_clicked:
+        if not view_all_clicked:
             elements = driver.find_elements_by_css_selector(
                 "a[id^='$ICField106$hviewall$']")
             for i in range(len(elements)):
-                driver.find_elements_by_css_selector(
-                    "a[id^='$ICField106$hviewall$']")[i].click()
+                # if the search has more than 50 result, after clicking continue, it need to find element again
+                try:
+                    elements[i].click()
+                except StaleElementReferenceException:
+                    elements = driver.find_elements_by_css_selector("a[id^='$ICField106$hviewall$']")
+                    elements[i].click()
                 # * temporary solution
                 time.sleep(5)
-            if course == "Biology":
-                biology_clicked = True
+            if course == "Accounting":
+                view_all_clicked = True
 
         # save the html
         wait.until(EC.presence_of_element_located(

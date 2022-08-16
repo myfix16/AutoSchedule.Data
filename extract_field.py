@@ -36,9 +36,6 @@ class FieldExtractor():
         """Get the code of every sessions.
         """
         if len(self._codes) == 0:
-            # code_container: ResultSet = self.subject_table.find_all(
-            #     'a', id=re.compile('DERIVED_CLSRCH_SSR_CLASSNAME_LONG\$\d'))
-            # self._codes = [a.string for a in code_container]
             self._read_details()
         return self._codes
 
@@ -70,10 +67,7 @@ class FieldExtractor():
         return self._contents
 
     def _read_details(self) -> None:
-        """[summary]
-
-        Raises:
-            ValueError: [description]
+        """Loop through all sessions for one class and gather session information
         """
         self._instructors = []
         self._times = []
